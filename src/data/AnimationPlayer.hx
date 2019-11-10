@@ -1,4 +1,5 @@
 package data;
+import openfl.geom.Matrix;
 import lime.media.AudioBuffer;
 import openfl.geom.Rectangle;
 #if openfl
@@ -14,7 +15,7 @@ import haxe.ds.Vector;
 import openfl.geom.Point;
 class AnimationPlayer
 {
-    var parents:Map<Int,TileContainer> = new Map<Int,TileContainer>();
+    var children:Vector<Array<Int>>;
     var parent:TileContainer;
     var time:Float = 0;
     private static var current:Array<Int> = [];
@@ -39,6 +40,7 @@ class AnimationPlayer
         ty = (Static.tileHeight - y) * Static.GRID;
         trace("tx " + tx + " ty " + ty);
         trace("numTiles " + parent.numTiles);
+        children = Vector.fromArrayCopy([for (i in 0...sprites.length) []]);
         setup();
         trace("numTilesAfter " + parent.numTiles);
     }
@@ -48,6 +50,8 @@ class AnimationPlayer
         var p:Int = 0;
         //temporary
         var tc:TileContainer;
+        //sprite parent
+        var sp:TileContainer;
         var point:Point = null;
         var index:Int = 0;
         //offset
@@ -56,47 +60,13 @@ class AnimationPlayer
             sprite = sprites[i];
             //set pos
             Main.objects.setSprite(sprite,objectData.spriteArray[i],tx,ty);
-            //continue;
             sprite.x += param[i].offset.x;
             sprite.y += -param[i].offset.y;
             sprite.originX += param[i].rotationCenterOffset.x;
             sprite.originY += -param[i].rotationCenterOffset.y;
-        }
-        //parent nesting
-        for (i in 0...sprites.length)
-        {
-            p = objectData.spriteArray.get(i).parent;
-            sprite = sprites[i];
-            //if (!sprite.visible) return;
-            while(p != -1)
-            {
-                if (!Std.is(sprites[p],TileContainer))
-                {
-                    tc = new TileContainer();
-                    tc.x = sprites[p].x;
-                    tc.y = sprites[p].y;
-                    tc.originX = sprites[p].originX;
-                    tc.originY = sprites[p].originY;
-                    sprites[p].x = 0;
-                    sprites[p].y = 0;
-                    sprites[p].originX = 0;
-                    sprites[p].originY = 0;
-                    sprites[p].parent.removeTile(sprites[p]);
-                    tc.addTile(sprites[p]);
-                    parent.addTileAt(tc,p);
-                    sprites[p] = tc;
-                }else{
-                    tc = cast sprites[p];
-                    point = localToGlobal(tc,new Point());
-                }
-                /*sprite.parent.removeTile(sprite);
-                tc.addTile(sprite);
-                sprite.x += -tc.x;
-                sprite.y += -tc.y;*/
-                //next
-                sprite = sprites[p];
-                p = objectData.spriteArray.get(p).parent;
-            }
+            //parent
+            p = objectData.spriteArray[i].parent;
+            if (p != -1) children[p].push(i);
         }
         //debug
         //for (p in [71,40]) Actuate.tween(sprites[p],1,{rotation:180}).repeat().reflect();
@@ -107,15 +77,15 @@ class AnimationPlayer
             sprite = sprites[i];
             //stop
             Actuate.stop(sprite);
-            //phase
-            sprite.x += phase(param[i].xPhase) * param[i].xAmp;
-            sprite.y += phase(param[i].yPhase) * param[i].yAmp;
-            //sprite.rotation += -phase(param[i].rotPhase) * 365;
-            //sprite.rotation += phase(param[i].rockPhase) * param[i].rockAmp;
             //animate
-            if (param[i].xAmp > 0) tween(sprite,{x:sprite.x + param[i].xAmp/2},{x:sprite.x - param[i].xAmp/2},1/param[i].xOscPerSec,param[i].xPhase);
-            if (param[i].yAmp > 0) tween(sprite,{y:sprite.y + param[i].yAmp/2},{y:sprite.y - param[i].yAmp/2},1/param[i].yOscPerSec,param[i].yPhase);
-            if (param[i].rockAmp > 0) tween(sprite,{rotation:sprite.rotation + (param[i].rockAmp * 365)/2},{rotation:sprite.rotation - (param[i].rockAmp * 365)/2},1/param[i].rockOscPerSec,param[i].rockPhase);
+            if (param[i].xAmp > 0) tween(sprite,{x:param[i].xAmp/2},1/param[i].xOscPerSec,param[i].xPhase);
+            if (param[i].yAmp > 0) tween(sprite,{y:param[i].yAmp/2},1/param[i].yOscPerSec,param[i].yPhase);
+            if (param[i].rockAmp > 0) tween(sprite,{rotation:(param[i].rockAmp * 365)/2},1/param[i].rockOscPerSec,param[i].rockPhase);
+            //parents
+            for (j in children.get(i))
+            {
+                //Actuate.update(update,1,[sprites[j],sprite],[sprites[j],sprite]).repeat();
+            }
         }
     }
     public function localToGlobal(tile:Tile,point:Point):Point
@@ -124,28 +94,38 @@ class AnimationPlayer
     }
     private function globalToLocal(tile:Tile,point:Point)
     {
-        @:privateAccess return tile.__getWorldTransform().__transformInversePoint(point);
+        @:privateAccess var mat = tile.__getWorldTransform();
+        @:privateAccess mat.__transformInversePoint(point);
+        tile.matrix = mat;
     }
     private inline function phase(x:Float):Float
     {
         if (x > 0.75) return x - 1;
         return (x * 2 - 1) * -2;
     }
-    private function tween(sprite:Tile,a:Dynamic,b:Dynamic,time:Float,phase:Float=0)
+    private function tween(sprite:Tile,a:Dynamic,time:Float,phaseNum:Float=0)
 	{
+        var prop = Reflect.fields(a)[0];
+        var value:Float = Reflect.getProperty(a,prop);
+        //phase
+        if (phaseNum > 0) Reflect.setProperty(sprite,prop,Reflect.getProperty(sprite,prop) + phase(phaseNum) * value);
         //shorten
-        if (phase >= 0.25 && phase <= 0.5)
+        if (phaseNum >= 0.25 && phaseNum <= 0.5)
         {
-            Actuate.tween(sprite,time/2,b,false).ease(Sine.easeInOut).onComplete(function()
+            Reflect.setProperty(a,prop,-value);
+            Actuate.tween(sprite,time/2,a,false).ease(Sine.easeInOut).onComplete(function()
             {
-                tween(sprite,a,b,time);
+                Reflect.setProperty(a,prop,-value);
+                tween(sprite,a,time);
             });
         }else{
 		    Actuate.tween(sprite,time/2,a,false).ease(Sine.easeInOut).onComplete(function()
 		    {
-			    Actuate.tween(sprite,time/2,b,false).ease(Sine.easeInOut).onComplete(function()
+                Reflect.setProperty(a,prop,-value);
+			    Actuate.tween(sprite,time/2,a,false).ease(Sine.easeInOut).onComplete(function()
                 {
-                    tween(sprite,a,b,time);
+                    Reflect.setProperty(a,prop,-value);
+                    tween(sprite,a,time);
                 });
 		    });
         }

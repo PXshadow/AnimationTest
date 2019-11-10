@@ -1,4 +1,6 @@
 package;
+import openfl.events.Event;
+import openfl.display.FPS;
 import sys.io.FileInput;
 import format.tools.BitsInput;
 import sys.io.File;
@@ -39,6 +41,6 @@ class Main extends Sprite
 		//new AiffData(input.readAll());
 		//display testing
 		stage.window.minimized = false;
-		//stage.window.x = -1500;
+		stage.window.x = -1500;
 	}
 }

@@ -58,24 +58,10 @@ class AnimationPlayer
             sprite.y += -param[i].offset.y;
             sprite.originX += param[i].rotationCenterOffset.x;
             sprite.originY += -param[i].rotationCenterOffset.y;
-            //phase
-            sprite.x += phase(param[i].xPhase) * param[i].xAmp;
-            sprite.y += phase(param[i].yPhase) * param[i].yAmp;
-            //sprite.rotation += -phase(param[i].rotPhase) * 365;
-            //sprite.rotation += phase(param[i].rockPhase) * param[i].rockAmp;
         }
-        //return;
         for (i in 0...param.length)
         {
             sprite = sprites[i];
-            //stop
-            Actuate.stop(sprite);
-            //play
-            //if (param[i].fadeAmp > 0) 
-            if (param[i].xAmp > 0) tween(sprite,{x:sprite.x + param[i].xAmp/2},{x:sprite.x - param[i].xAmp/2},1/param[i].xOscPerSec,param[i].xPhase);
-            if (param[i].yAmp > 0) tween(sprite,{y:sprite.y + param[i].yAmp/2},{y:sprite.y - param[i].yAmp/2},1/param[i].yOscPerSec,param[i].yPhase);
-            if (param[i].rockAmp > 0) tween(sprite,{rotation:sprite.rotation + (param[i].rockAmp * 365)/2},{rotation:sprite.rotation - (param[i].rockAmp * 365)/2},1/param[i].rockOscPerSec,param[i].rockPhase);
-            //parent
             p = objectData.spriteArray[i].parent;
             if (p != -1)
             {
@@ -101,44 +87,54 @@ class AnimationPlayer
                         var dis = Math.sqrt(Math.pow(sprites[i].y - sprite.y,2) + Math.pow(sprite.x - sprites[p].x,2));
                         sprite.x = sprites[p].x + dis * Math.cos(rad);
                         sprite.y = sprites[p].y + dis * Math.sin(rad);*/
-                        sprite.matrix.translate(-sprites[p].x,-sprites[p].y);
-                        sprite.matrix.rotate((sprites[p].rotation - pr) * (Math.PI/180));
-                        sprite.matrix.translate(sprites[p].x,sprites[p].y);
+                        sprites[i].matrix.translate(-sprites[p].x,-sprites[p].y);
+                        sprites[i].matrix.rotate((sprites[p].rotation - pr) * (Math.PI/180));
+                        sprites[i].matrix.translate(sprites[p].x,sprites[p].y);
                         pr = sprites[p].rotation;
                     }
                 }
-            }else{
-                //Actuate.tween(sprite,1,{y:0}).reflect().repeat();
             }
         }
-    }
-    private function blank() {}
-    public function localToGlobal(tile:Tile,point:Point):Point
-    {
-        @:privateAccess return tile.__getWorldTransform().transformPoint(point);
-    }
-    private function globalToLocal(tile:Tile,point:Point)
-    {
-        @:privateAccess var mat = tile.__getWorldTransform();
-        @:privateAccess mat.__transformInversePoint(point);
-        tile.matrix = mat;
+        //return;
+        var px:Float = 0;
+        var py:Float = 0;
+        var pr:Float = 0;
+        for (i in 0...param.length)
+        {
+            sprite = sprites[i];
+            //stop
+            Actuate.stop(sprite);
+            //phase
+            px = phase(param[i].xPhase) * param[i].xAmp;
+            py = phase(param[i].yPhase) * param[i].yAmp;
+            pr = param[i].rotPhase * 365;
+            sprite.x += px;
+            sprite.y += py;
+            sprite.rotation += pr;
+            //sprite.rotation = phase(param[i].rockPhase) * param[i].rockAmp;
+            //play
+            if (param[i].rockOscPerSec > 0) tween(sprite,{alpha:param[i].fadeMin},{alpha:param[i].fadeMax},1/param[i].fadeOscPerSec,param[i].fadePhase);
+            if (param[i].xAmp > 0) tween(sprite,{x:sprite.x + param[i].xAmp/2},{x:sprite.x - param[i].xAmp/2},1/param[i].xOscPerSec,param[i].xPhase,px);
+            if (param[i].yAmp > 0) tween(sprite,{y:sprite.y + param[i].yAmp/2},{y:sprite.y - param[i].yAmp/2},1/param[i].yOscPerSec,param[i].yPhase,py);
+            if (param[i].rockAmp > 0) tween(sprite,{rotation:sprite.rotation + (param[i].rockAmp * 365)},{rotation:sprite.rotation - (param[i].rockAmp * 365)},1/param[i].rockOscPerSec,param[i].rockPhase);
+        }
     }
     private inline function phase(x:Float):Float
     {
         if (x > 0.75) return x - 1;
         return (x * 2 - 1) * -2;
     }
-    private function tween(sprite:Tile,a:Dynamic,b:Dynamic,time:Float,phase:Float=0)
+    private function tween(sprite:Tile,a:Dynamic,b:Dynamic,time:Float,phase:Float=0,phaseValue:Float=0)
 	{
         //shorten
         if (phase >= 0.25 && phase <= 0.5)
         {
-            Actuate.tween(sprite,time/2,b,false).ease(Sine.easeInOut).onComplete(function()
+            Actuate.tween(sprite,time/2,tweenPhase(b,phaseValue),false).ease(Sine.easeInOut).onComplete(function()
             {
                 tween(sprite,a,b,time);
             });
         }else{
-		    Actuate.tween(sprite,time/2,a,false).ease(Sine.easeInOut).onComplete(function()
+		    Actuate.tween(sprite,time/2,(phase > 0 ? tweenPhase(a,phaseValue) : a),false).ease(Sine.easeInOut).onComplete(function()
 		    {
 			    Actuate.tween(sprite,time/2,b,false).ease(Sine.easeInOut).onComplete(function()
                 {
@@ -147,5 +143,12 @@ class AnimationPlayer
 		    });
         }
 	}
+    private function tweenPhase(o:Dynamic,sub:Float):Dynamic
+    {
+        var name = Reflect.fields(o)[0];
+        var value:Float = Reflect.field(o,name);
+        Reflect.setField(o,name,value - sub * 2);
+        return o;
+    }
 }
 #end

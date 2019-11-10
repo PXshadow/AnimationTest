@@ -1,4 +1,6 @@
 package;
+import openfl.ui.Keyboard;
+import openfl.events.KeyboardEvent;
 import openfl.events.Event;
 import openfl.display.FPS;
 import sys.io.FileInput;
@@ -30,7 +32,11 @@ class Main extends Sprite
 		objects.addPlayer(instance);
 		objects.player.x = 400;
 		objects.player.y = 400;
-		new AnimationPlayer(objects.player.instance.po_id,2,objects.player,objects.player.sprites(),0,Static.tileHeight);
+		stage.addEventListener(KeyboardEvent.KEY_DOWN,function(e:KeyboardEvent)
+		{
+
+			if (Keyboard.A == e.keyCode) new AnimationPlayer(objects.player.instance.po_id,2,objects.player,objects.player.sprites(),0,Static.tileHeight);
+		});
 		objects.width = 800;
 		objects.height = 600;
 		addChild(objects);

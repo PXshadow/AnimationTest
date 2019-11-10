@@ -58,10 +58,8 @@ class AnimationPlayer
             sprite.y += -param[i].offset.y;
             sprite.originX += param[i].rotationCenterOffset.x;
             sprite.originY += -param[i].rotationCenterOffset.y;
-        }
-        for (i in 0...param.length)
-        {
-            sprite = sprites[i];
+            sprite.data = {rotation:0.0};
+            //parent
             p = objectData.spriteArray[i].parent;
             if (p != -1)
             {
@@ -90,7 +88,9 @@ class AnimationPlayer
                         sprites[i].matrix.translate(-sprites[p].x,-sprites[p].y);
                         sprites[i].matrix.rotate((sprites[p].rotation - pr) * (Math.PI/180));
                         sprites[i].matrix.translate(sprites[p].x,sprites[p].y);
+                        sprites[i].rotation += (sprites[p].rotation - pr);
                         pr = sprites[p].rotation;
+                        //overwriting acutated tween
                     }
                 }
             }

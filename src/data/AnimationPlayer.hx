@@ -1,5 +1,4 @@
 package data;
-import openfl.geom.Matrix;
 import lime.media.AudioBuffer;
 import openfl.geom.Rectangle;
 #if openfl
@@ -15,7 +14,6 @@ import haxe.ds.Vector;
 import openfl.geom.Point;
 class AnimationPlayer
 {
-    var children:Vector<Array<Int>>;
     var parent:TileContainer;
     var time:Float = 0;
     private static var current:Array<Int> = [];
@@ -38,11 +36,7 @@ class AnimationPlayer
         type = objectData.animation.record[int].type;
         tx = x * Static.GRID;
         ty = (Static.tileHeight - y) * Static.GRID;
-        trace("tx " + tx + " ty " + ty);
-        trace("numTiles " + parent.numTiles);
-        children = Vector.fromArrayCopy([for (i in 0...sprites.length) []]);
         setup();
-        trace("numTilesAfter " + parent.numTiles);
     }
     public function setup()
     {
@@ -64,30 +58,61 @@ class AnimationPlayer
             sprite.y += -param[i].offset.y;
             sprite.originX += param[i].rotationCenterOffset.x;
             sprite.originY += -param[i].rotationCenterOffset.y;
-            //parent
-            p = objectData.spriteArray[i].parent;
-            if (p != -1) children[p].push(i);
+            //phase
+            sprite.x += phase(param[i].xPhase) * param[i].xAmp;
+            sprite.y += phase(param[i].yPhase) * param[i].yAmp;
+            //sprite.rotation += -phase(param[i].rotPhase) * 365;
+            //sprite.rotation += phase(param[i].rockPhase) * param[i].rockAmp;
         }
-        //debug
-        //for (p in [71,40]) Actuate.tween(sprites[p],1,{rotation:180}).repeat().reflect();
         //return;
-        //animation
         for (i in 0...param.length)
         {
             sprite = sprites[i];
             //stop
             Actuate.stop(sprite);
-            //animate
-            if (param[i].xAmp > 0) tween(sprite,{x:param[i].xAmp/2},1/param[i].xOscPerSec,param[i].xPhase);
-            if (param[i].yAmp > 0) tween(sprite,{y:param[i].yAmp/2},1/param[i].yOscPerSec,param[i].yPhase);
-            if (param[i].rockAmp > 0) tween(sprite,{rotation:(param[i].rockAmp * 365)/2},1/param[i].rockOscPerSec,param[i].rockPhase);
-            //parents
-            for (j in children.get(i))
+            //play
+            //if (param[i].fadeAmp > 0) 
+            if (param[i].xAmp > 0) tween(sprite,{x:sprite.x + param[i].xAmp/2},{x:sprite.x - param[i].xAmp/2},1/param[i].xOscPerSec,param[i].xPhase);
+            if (param[i].yAmp > 0) tween(sprite,{y:sprite.y + param[i].yAmp/2},{y:sprite.y - param[i].yAmp/2},1/param[i].yOscPerSec,param[i].yPhase);
+            if (param[i].rockAmp > 0) tween(sprite,{rotation:sprite.rotation + (param[i].rockAmp * 365)/2},{rotation:sprite.rotation - (param[i].rockAmp * 365)/2},1/param[i].rockOscPerSec,param[i].rockPhase);
+            //parent
+            p = objectData.spriteArray[i].parent;
+            if (p != -1)
             {
-                //Actuate.update(update,1,[sprites[j],sprite],[sprites[j],sprite]).repeat();
+                var px:Float = sprites[p].x;
+                var py:Float = sprites[p].y;
+                var pr:Float = sprites[p].rotation;
+                var timer = new Timer(1/60 * 1000);
+                timer.run = function()
+                {
+                    if (px != sprites[p].x)
+                    {
+                        sprites[i].x += sprites[p].x - px;
+                        px = sprites[p].x;
+                    }
+                    if (py != sprites[p].y)
+                    {
+                        sprites[i].y += sprites[p].y - py;
+                        py = sprites[p].y;
+                    }
+                    if (pr != sprites[p].rotation)
+                    {
+                        /*var rad = Math.atan2(sprite.y - sprites[p].y,sprite.x - sprites[p].x);
+                        var dis = Math.sqrt(Math.pow(sprites[i].y - sprite.y,2) + Math.pow(sprite.x - sprites[p].x,2));
+                        sprite.x = sprites[p].x + dis * Math.cos(rad);
+                        sprite.y = sprites[p].y + dis * Math.sin(rad);*/
+                        sprite.matrix.translate(-sprites[p].x,-sprites[p].y);
+                        sprite.matrix.rotate((sprites[p].rotation - pr) * (Math.PI/180));
+                        sprite.matrix.translate(sprites[p].x,sprites[p].y);
+                        pr = sprites[p].rotation;
+                    }
+                }
+            }else{
+                //Actuate.tween(sprite,1,{y:0}).reflect().repeat();
             }
         }
     }
+    private function blank() {}
     public function localToGlobal(tile:Tile,point:Point):Point
     {
         @:privateAccess return tile.__getWorldTransform().transformPoint(point);
@@ -103,47 +128,24 @@ class AnimationPlayer
         if (x > 0.75) return x - 1;
         return (x * 2 - 1) * -2;
     }
-    private function tween(sprite:Tile,a:Dynamic,time:Float,phaseNum:Float=0)
+    private function tween(sprite:Tile,a:Dynamic,b:Dynamic,time:Float,phase:Float=0)
 	{
-        var prop = Reflect.fields(a)[0];
-        var value:Float = Reflect.getProperty(a,prop);
-        //phase
-        if (phaseNum > 0) Reflect.setProperty(sprite,prop,Reflect.getProperty(sprite,prop) + phase(phaseNum) * value);
         //shorten
-        if (phaseNum >= 0.25 && phaseNum <= 0.5)
+        if (phase >= 0.25 && phase <= 0.5)
         {
-            Reflect.setProperty(a,prop,-value);
-            Actuate.tween(sprite,time/2,a,false).ease(Sine.easeInOut).onComplete(function()
+            Actuate.tween(sprite,time/2,b,false).ease(Sine.easeInOut).onComplete(function()
             {
-                Reflect.setProperty(a,prop,-value);
-                tween(sprite,a,time);
+                tween(sprite,a,b,time);
             });
         }else{
 		    Actuate.tween(sprite,time/2,a,false).ease(Sine.easeInOut).onComplete(function()
 		    {
-                Reflect.setProperty(a,prop,-value);
-			    Actuate.tween(sprite,time/2,a,false).ease(Sine.easeInOut).onComplete(function()
+			    Actuate.tween(sprite,time/2,b,false).ease(Sine.easeInOut).onComplete(function()
                 {
-                    Reflect.setProperty(a,prop,-value);
-                    tween(sprite,a,time);
+                    tween(sprite,a,b,time);
                 });
 		    });
         }
 	}
-    private function clean()
-    {
-        for (i in 0...sprites.length)
-        {
-            Actuate.stop(sprites[i]);
-            if (!Std.is(sprites[i],TileContainer))
-            {
-                if (!parent.contains(sprites[i]))
-                {
-                    sprites[i].parent.removeTile(sprites[i]);
-                    parent.addTile(sprites[i]);
-                }
-            }
-        }
-    }
 }
 #end

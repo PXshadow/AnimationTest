@@ -5,6 +5,7 @@ import sys.FileSystem;
 import sys.io.File;
 #end
 import haxe.Http;
+import haxe.io.Path;
 class Static 
 {
     //dir
@@ -37,6 +38,19 @@ class Static
             case "Windows": Sys.command("start", [url]);
             default:
         }
+    }
+    public static inline function setDir()
+    {
+        #if (windows || !openfl)
+        Static.dir = "";
+        #else
+        Static.dir = Path.normalize(lime.system.System.applicationDirectory);
+        Static.dir = Path.removeTrailingSlashes(Static.dir) + "/";
+        #end
+        #if mac
+        Static.dir = Static.dir.substring(0,Static.dir.indexOf("/Contents/Resources/"));
+        Static.dir = Static.dir.substring(0,Static.dir.lastIndexOf("/") + 1);
+        #end
     }
     //get object list number
     public static function number():Int

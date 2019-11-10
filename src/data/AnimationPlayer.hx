@@ -11,6 +11,7 @@ import openfl.display.Tile;
 import openfl.display.TileContainer;
 import data.AnimationData.AnimationParameter;
 import haxe.ds.Vector;
+import openfl.geom.Point;
 class AnimationPlayer
 {
     var parents:Map<Int,TileContainer> = new Map<Int,TileContainer>();
@@ -47,7 +48,7 @@ class AnimationPlayer
         var p:Int = 0;
         //temporary
         var tc:TileContainer;
-        var bounds:Rectangle;
+        var point:Point = null;
         var index:Int = 0;
         //offset
         for (i in 0...sprites.length)
@@ -66,14 +67,14 @@ class AnimationPlayer
         {
             p = objectData.spriteArray.get(i).parent;
             sprite = sprites[i];
+            //if (!sprite.visible) return;
             while(p != -1)
             {
                 if (!Std.is(sprites[p],TileContainer))
                 {
                     tc = new TileContainer();
-                    bounds = sprites[p].getBounds(parent);
-                    tc.x = bounds.x;
-                    tc.y = bounds.y;
+                    tc.x = sprites[p].x;
+                    tc.y = sprites[p].y;
                     tc.originX = sprites[p].originX;
                     tc.originY = sprites[p].originY;
                     sprites[p].x = 0;
@@ -86,31 +87,20 @@ class AnimationPlayer
                     sprites[p] = tc;
                 }else{
                     tc = cast sprites[p];
+                    point = localToGlobal(tc,new Point());
                 }
-                bounds = sprite.getBounds(parent);
-                trace("bound " + bounds.x + " " + bounds.y);
-                sprite.x = bounds.x;
-                sprite.y = bounds.y;
-                sprite.parent.removeTile(sprite);
+                /*sprite.parent.removeTile(sprite);
                 tc.addTile(sprite);
+                sprite.x += -tc.x;
+                sprite.y += -tc.y;*/
                 //next
                 sprite = sprites[p];
                 p = objectData.spriteArray.get(p).parent;
-                p = -1;
             }
         }
         //debug
-        /*for (i in 0...sprites.length)
-        {
-            if (Std.is(sprites[i],TileContainer))
-            {
-                trace(i + " t: c num: " + cast(sprites[i],TileContainer).numTiles);
-            }else{
-                trace(i + " t: t ");
-            }
-        }*/
         //for (p in [71,40]) Actuate.tween(sprites[p],1,{rotation:180}).repeat().reflect();
-        return;
+        //return;
         //animation
         for (i in 0...param.length)
         {
@@ -127,6 +117,14 @@ class AnimationPlayer
             if (param[i].yAmp > 0) tween(sprite,{y:sprite.y + param[i].yAmp/2},{y:sprite.y - param[i].yAmp/2},1/param[i].yOscPerSec,param[i].yPhase);
             if (param[i].rockAmp > 0) tween(sprite,{rotation:sprite.rotation + (param[i].rockAmp * 365)/2},{rotation:sprite.rotation - (param[i].rockAmp * 365)/2},1/param[i].rockOscPerSec,param[i].rockPhase);
         }
+    }
+    public function localToGlobal(tile:Tile,point:Point):Point
+    {
+        @:privateAccess return tile.__getWorldTransform().transformPoint(point);
+    }
+    private function globalToLocal(tile:Tile,point:Point)
+    {
+        @:privateAccess return tile.__getWorldTransform().__transformInversePoint(point);
     }
     private inline function phase(x:Float):Float
     {
@@ -152,15 +150,6 @@ class AnimationPlayer
 		    });
         }
 	}
-    @:access(openfl.display.Tile)
-    public function localToGlobal(point:Point):Point
-    {
-        return __getWorldTransform().transformPoint(point);
-    }
-    public function localToGlobalHack(tile:Tile, point:Point):Point
-    {
-        return tile.__getWorldTransform().transformPoint(point);
-    }
     private function clean()
     {
         for (i in 0...sprites.length)

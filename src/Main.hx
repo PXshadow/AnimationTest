@@ -16,9 +16,9 @@ class Main extends Sprite
 	public static var draw:Shape = new Shape();
 	public function new()
 	{
+		Static.setDir();
 		super();
 		draw.graphics.beginFill(0,0.5);
-		
 		data = new GameData();
 		data.objectMap.set(19,new ObjectData(19));
 		data.objectMap.set(30,new ObjectData(30));
@@ -39,6 +39,6 @@ class Main extends Sprite
 		//new AiffData(input.readAll());
 		//display testing
 		stage.window.minimized = false;
-		stage.window.x = -1500;
+		//stage.window.x = -1500;
 	}
 }
